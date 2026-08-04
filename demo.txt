@@ -1,0 +1,693 @@
+package main
+
+import "fmt"
+
+func main() {
+
+	// string variables
+	var nameOne string = "mario"
+	var nameTwo = "luigi"
+	var nameThree string
+
+	fmt.Print(nameOne, nameTwo, nameThree)
+
+	nameOne = "peach"
+	nameThree = "bowser"
+
+	fmt.Print(nameOne, nameTwo, nameThree)
+
+	// the following is allowed inside functions only
+	nameFour := "yoshi"
+	fmt.Print(nameFour)
+
+	// int variables
+	var ageOne int = 20
+	var ageTwo = 30
+	ageThree := 40
+
+	fmt.Print(ageOne, ageTwo, ageThree)
+
+	// bits & memory
+	// var numOne int8 = 25
+	// var numTwo int8 = 128 // too large a number for 8-bit
+	// var numTwo uint = -25 unsigned ints cannot be negative
+
+	var scoreOne float32 = 25.98
+	var scoreTwo float64 = 1965385877.5
+	var scoreThree = 1.5 // inferred as float64
+
+	fmt.Print(scoreOne, scoreTwo, scoreThree)
+
+	// for more info see https://golang.org/ref/spec#Numeric_types
+
+}
+
+--------------------------------------
+package main
+
+import "fmt"
+
+func main() {
+	age := 35
+	name := "shaun"
+
+	// Print
+	fmt.Print("hello, ")
+	fmt.Print("world! \n")
+	fmt.Print("new line \n")
+
+	// Println
+	fmt.Println("hello ninjas!")
+	fmt.Println("goodbye ninjas!")
+	fmt.Println("my age is", age, "and my name is", name)
+
+	// Printf (formatted string), %_ = format specifier
+	fmt.Printf("my age is %v and my name is %v \n", age, name) // %v = value in default format
+	fmt.Printf("my age is %q and my name is %q \n", age, name) // %q = quotes
+	fmt.Printf("age is of type %T \n", age)                    // %T is the type
+	fmt.Printf("you scored %f points! \n", 225.55)             // %f = float format
+	fmt.Printf("you scored %0.1f points! \n", 225.55)          // %0.2f = float with 2 decimal points
+
+	// Sprintf (save formatted strings)
+	var str = fmt.Sprintf("my age is %v and my name is %v \n", age, name)
+	fmt.Println("the saved string is:", str)
+
+	// see more format specifiers here:
+	// https://golang.org/pkg/fmt/
+
+}
+----------------------------------------
+package main
+
+import "fmt"
+
+func main() {
+	// var ages [3]int = [3]int{20, 25, 30}
+	var ages = [3]int{20, 25, 30}
+
+	names := [4]string{"yoshi", "mario", "peach", "bowser"}
+	names[1] = "luigi"
+
+	fmt.Println(ages, len(ages))
+	fmt.Println(names, len(names))
+
+	// slices (use arrays under the hood)
+	var scores = []int{100, 50, 60}
+	scores[2] = 25
+	scores = append(scores, 85)
+
+	fmt.Println(scores, len(scores))
+
+	// slice ranges
+	rangeOne := names[1:4] // doesn't include pos 4 element
+	rangeTwo := names[2:]  //includes the last element
+	rangeThree := names[:3]
+
+	fmt.Println(rangeOne, rangeTwo, rangeThree)
+	fmt.Printf("the type of rangeOne is %T \n", rangeOne)
+
+	rangeOne = append(rangeOne, "koopa")
+	fmt.Println(rangeOne)
+
+}
+-------------------
+package main
+
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
+func main() {
+	greeting := "hello there friends!"
+
+	fmt.Println(strings.Contains(greeting, "hello"))
+	fmt.Println(strings.Contains(greeting, "bye"))
+	fmt.Println(strings.ReplaceAll(greeting, "hello", "hi"))
+	fmt.Println(strings.ToUpper(greeting))
+	fmt.Println(strings.Index(greeting, "ll"))
+	fmt.Println(strings.Split(greeting, " "))
+
+	// the original value is unchanged
+	fmt.Println("original string value =", greeting)
+
+	ages := []int{45, 20, 35, 30, 75, 60, 50, 25}
+
+	sort.Ints(ages)
+	fmt.Println(ages)
+
+	index := sort.SearchInts(ages, 30)
+	fmt.Println(index)
+
+	names := []string{"yoshi", "mario", "peach", "bowser", "luigi"}
+
+	sort.Strings(names)
+	fmt.Println(names)
+
+	fmt.Println(sort.SearchStrings(names, "bowser"))
+
+}
+-----------------------------------------------------------------
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	x := 0
+	for x < 5 {
+		fmt.Println("value of x is:", x)
+		x++ // infinite loop without this
+	}
+
+	for i := 0; i < 5; i++ {
+		fmt.Println("value of i is:", i)
+	}
+
+	names := []string{"mario", "luigi", "yoshi", "peach"}
+
+	for i := 0; i < len(names); i++ {
+		fmt.Println(names[i])
+	}
+
+	for index, val := range names {
+		fmt.Printf("the value at pos %v is %v \n", index, val)
+		val = "new string"
+	}
+
+	for _, val := range names {
+		fmt.Print(val, ",")
+		val = "new string"
+	}
+
+	// changing val in a loop does not mutate the original slice
+	fmt.Println(names)
+
+}
+----------------------------------------------------------------
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+	age := 45
+
+	fmt.Println(age <= 50)
+	fmt.Println(age >= 50)
+	fmt.Println(age == 45)
+	fmt.Println(age != 50)
+
+	if age < 30 {
+		fmt.Println("age is less than 30")
+	} else if age < 40 {
+		fmt.Println("age is less than 40")
+	} else {
+		fmt.Println("age is not less than 40")
+	}
+
+	names := []string{"mario", "luigi", "yoshi", "peach", "bowser"}
+
+	for index, val := range names {
+		if index == 1 {
+			fmt.Println("continuing at pos", index)
+			continue
+		}
+		if index > 2 {
+			fmt.Println("breaking at pos", index)
+			break
+		}
+		fmt.Printf("the value at pos %v is %v \n", index, val)
+	}
+}
+-----------------------------------------------------------------
+package main
+
+import (
+	"fmt"
+	"math"
+)
+
+func sayGreeting(n string) {
+	fmt.Printf("Good morning %v \n", n)
+}
+
+func sayBye(n string) {
+	fmt.Printf("Goodbye %v \n", n)
+}
+
+func cycleNames(n []string, f func(string)) {
+	for _, v := range n {
+		f(v)
+	}
+}
+
+func circleArea(r float64) float64 {
+	return math.Pi * r * r
+}
+
+func main() {
+	sayGreeting("mario")
+	sayGreeting("luigi")
+	sayBye("mario")
+
+	cycleNames([]string{"cloud", "barret", "tifa"}, sayGreeting)
+	cycleNames([]string{"cloud", "barret", "tifa"}, sayBye)
+
+	a1 := circleArea(10.5)
+	a2 := circleArea(15)
+
+	fmt.Println(a1, a2)
+	fmt.Printf("circle 1 area is %0.3f & circle 2 area is %0.3f \n", a1, a2)
+}
+----------------------------------------------------------------
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+func getInitials(n string) (string, string) {
+	s := strings.ToUpper(n)
+	names := strings.Split(s, " ")
+
+	var initials []string
+	for _, v := range names {
+		initials = append(initials, v[:1])
+	}
+
+	if len(initials) > 1 {
+		return initials[0], initials[1]
+	}
+
+	return initials[0], "_"
+}
+
+func main() {
+	fn1, sn1 := getInitials("tifa lockhart")
+	fmt.Println(fn1, sn1)
+
+	fn2, sn2 := getInitials("cloud strife")
+	fmt.Println(fn2, sn2)
+
+	fn3, sn3 := getInitials("barret")
+	fmt.Println(fn3, sn3)
+}
+-----------------------------------------------------------------
+package main
+
+import "fmt"
+
+var score = 99.5
+
+// cannot use shorthand outside of functions
+// scoreTwo := 50
+
+func main() {
+	sayHello("mario")
+	showScore()
+
+	for _, v := range points {
+		fmt.Println(v)
+	}
+}
+----------------------------------------------------------------
+package main
+
+import "fmt"
+
+func main() {
+	menu := map[string]float64{
+		"soup":           4.99,
+		"pie":            7.99,
+		"salad":          6.99,
+		"toffee pudding": 3.55,
+	}
+
+	fmt.Println(menu)
+	fmt.Println(menu["pie"])
+
+	// looping maps
+	for k, v := range menu {
+		fmt.Println(k, "-", v)
+	}
+
+	// ints as key type
+	phonebook := map[int]string{
+		267584967: "mario",
+		984759373: "luigi",
+		845775485: "peach",
+	}
+
+	fmt.Println(phonebook)
+	fmt.Println(phonebook[845775485])
+
+	phonebook[984759373] = "bowser"
+	fmt.Println(phonebook)
+
+	phonebook[647583927] = "yoshi"
+	fmt.Println(phonebook)
+}
+-----------------------------------------------------------------
+package main
+
+import "fmt"
+
+// func updateName(x string) {
+// 	x = "yoshi"
+// }
+
+func updateName(x string) string {
+	x = "wedge"
+	return x
+}
+
+func updateMenu(y map[string]float64) {
+	y["coffee"] = 2.99
+}
+
+func main() {
+	// group A types -> strings, ints, bools, floats, arrays, structs
+	// non-pointer wrapper values
+	name := "tifa"
+
+	// updateName(name)
+	name = updateName(name)
+
+	fmt.Println(name)
+
+	// group B types -> slices, maps, functions
+	// pointer wrapper values
+	menu := map[string]float64{
+		"pie":       5.95,
+		"ice cream": 3.99,
+	}
+
+	updateMenu(menu)
+	fmt.Println(menu)
+}
+----------------------------------------------------------------
+package main
+
+import "fmt"
+
+// func updateName(n string) {
+// 	n = "wedge"
+// }
+
+func updateName(n *string) {
+	*n = "wedge"
+}
+
+func main() {
+	name := "tifa"
+
+	// updateName(name)
+	// fmt.Println(name)
+
+	// & gets the memory address of the value (pointer)
+	fmt.Println("memory address of name is:", &name)
+
+	// * gets the value at the specified memory address
+	m := &name
+	fmt.Println("memory address:", m)
+	fmt.Println("value at memory address:", *m)
+
+	updateName(m) // using pointer as arg, can pass &name directly instead of "m" as well
+	fmt.Println(name)
+
+}
+
+/*
+
+|--name---|----m----|
+|  0x001  |  0x002  |
+|---------|---------|
+| "tifa"  | p0x001  |
+|---------|---------|
+
+*/
+
+-----------------------------------------------------------------
+package main
+
+import "fmt"
+
+func main() {
+	mybill := newBill("mario's bill")
+
+	fmt.Println(mybill)
+}
+----------------------------------------------------------------
+package main
+
+import "fmt"
+
+func main() {
+	mybill := newBill("mario's bill")
+
+	mybill.addItem("onion soup", 4.50)
+	mybill.addItem("veg pie", 8.95)
+	mybill.addItem("toffee pudding", 4.95)
+	mybill.addItem("coffee", 3.25)
+
+	mybill.updateTip(10)
+
+	fmt.Println(mybill.format())
+}
+-----------------------------------------------------------------
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+)
+
+func getInput(prompt string, r *bufio.Reader) (string, error) {
+	fmt.Print(prompt)
+	input, err := r.ReadString('\n')
+
+	return strings.TrimSpace(input), err
+}
+
+func createBill() bill {
+	reader := bufio.NewReader(os.Stdin)
+
+	// fmt.Print("Create a new bill name: ")
+	// name, _ := reader.ReadString('\n')
+	// name = strings.TrimSpace(name)
+	name, _ := getInput("Create a new bill name: ", reader)
+
+	b := newBill(name)
+	fmt.Println("Created the bill -", b.name)
+
+	return b
+}
+
+func promptOptions(b bill) {
+	reader := bufio.NewReader(os.Stdin)
+
+	opt, _ := getInput("Choose option (a -add item, s - save bill, t - add tip): ", reader)
+	fmt.Println(opt)
+}
+
+func main() {
+
+	mybill := createBill()
+	promptOptions(mybill)
+
+}
+----------------------------------------------------------------
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+)
+
+func getInput(prompt string, r *bufio.Reader) (string, error) {
+	fmt.Print(prompt)
+	input, err := r.ReadString('\n')
+
+	return strings.TrimSpace(input), err
+}
+
+func createBill() bill {
+	reader := bufio.NewReader(os.Stdin)
+
+	name, _ := getInput("Create a new bill name: ", reader)
+
+	b := newBill(name)
+	fmt.Println("Created the bill -", b.name)
+
+	return b
+}
+
+func promptOptions(b bill) {
+	reader := bufio.NewReader(os.Stdin)
+
+	opt, _ := getInput("Choose option (a - add item, s - save bill, t - add tip): ", reader)
+
+	switch opt {
+	case "a":
+		name, _ := getInput("Item name: ", reader)
+		price, _ := getInput("Item price: ", reader)
+
+		fmt.Println(name, price)
+	case "t":
+		tip, _ := getInput("Enter tip amount ($): ", reader)
+
+		fmt.Println(tip)
+	case "s":
+		fmt.Println("you chose to save the bill")
+	default:
+		fmt.Println("That was not a valid option...")
+		promptOptions(b)
+	}
+}
+
+func main() {
+
+	mybill := createBill()
+	promptOptions(mybill)
+
+}
+-----------------------------------------------------------------
+package main
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+)
+
+func getInput(prompt string, r *bufio.Reader) (string, error) {
+	fmt.Print(prompt)
+	input, err := r.ReadString('\n')
+
+	return strings.TrimSpace(input), err
+}
+
+func createBill() bill {
+	reader := bufio.NewReader(os.Stdin)
+
+	name, _ := getInput("Create a new bill name: ", reader)
+
+	b := newBill(name)
+	fmt.Println("Created the bill -", b.name)
+
+	return b
+}
+
+func promptOptions(b bill) {
+	reader := bufio.NewReader(os.Stdin)
+
+	opt, _ := getInput("Choose option (a - add item, s - save bill, t - add tip): ", reader)
+
+	switch opt {
+	case "a":
+		name, _ := getInput("Item name: ", reader)
+		price, _ := getInput("Item price: ", reader)
+
+		p, err := strconv.ParseFloat(price, 64)
+		if err != nil {
+			fmt.Println("The price must be a number...")
+			promptOptions(b)
+		}
+		b.addItem(name, p)
+
+		fmt.Println("item added -", name, price)
+		promptOptions(b)
+	case "t":
+		tip, _ := getInput("Enter tip amount ($): ", reader)
+
+		t, err := strconv.ParseFloat(tip, 64)
+		if err != nil {
+			fmt.Println("The tip must be a number...")
+			promptOptions(b)
+		}
+		b.updateTip(t)
+
+		fmt.Println("tip has been updated to", tip)
+		promptOptions(b)
+	case "s":
+		fmt.Println("you chose to save the bill", b)
+	default:
+		fmt.Println("That was not a valid option...")
+		promptOptions(b)
+	}
+}
+
+func main() {
+
+	mybill := createBill()
+	promptOptions(mybill)
+
+}
+----------------------------------------------------------------
+package main
+
+import (
+	"fmt"
+	"math"
+)
+
+// shape interface
+type shape interface {
+	area() float64
+	circumf() float64
+}
+
+type square struct {
+	length float64
+}
+type circle struct {
+	radius float64
+}
+
+// square methods
+func (s square) area() float64 {
+	return s.length * s.length
+}
+func (s square) circumf() float64 {
+	return s.length * 4
+}
+
+// circle methods
+func (c circle) area() float64 {
+	return math.Pi * c.radius * c.radius
+}
+func (c circle) circumf() float64 {
+	return 2 * math.Pi * c.radius
+}
+
+func printShapeInfo(s shape) {
+	fmt.Printf("area of %T is: %0.2f \n", s, s.area())
+	fmt.Printf("circumference of %T is: %0.2f \n", s, s.circumf())
+}
+
+func main() {
+	shapes := []shape{
+		square{length: 15.2},
+		circle{radius: 7.5},
+		circle{radius: 12.3},
+		square{length: 4.9},
+	}
+
+	for _, v := range shapes {
+		printShapeInfo(v)
+		fmt.Println("---")
+	}
+}
+-----------------------------------------------------------------
+
