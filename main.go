@@ -1,11 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"time"
 	"welcome/config"
 	"welcome/middleware"
 	"welcome/models"
-	"fmt"
+
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
@@ -13,13 +15,20 @@ import (
 )
 
 func main() {
-    config.ConnectDatabase()
+	config.ConnectDatabase()
 	router := gin.Default()
 
-	router.POST("/register",func(c *gin.Context){
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}))
+
+	router.POST("/register", func(c *gin.Context) {
 		var user models.User
 		if err := c.BindJSON(&user); err != nil {
-			validationErrors:= err.(validator.ValidationErrors)
+			validationErrors := err.(validator.ValidationErrors)
 			firstError := validationErrors[0]
 			switch firstError.Field() {
 			case "Name":
@@ -31,7 +40,7 @@ func main() {
 					"error": "Please enter a valid email address.",
 				})
 			case "Password":
-				switch firstError.Tag(){
+				switch firstError.Tag() {
 				case "required":
 					c.JSON(400, gin.H{
 						"error": "Password is required.",
@@ -59,7 +68,7 @@ func main() {
 			})
 			return
 		}
-		hashedPassword, err:=bcrypt.GenerateFromPassword(([]byte)(user.Password),bcrypt.DefaultCost)
+		hashedPassword, err := bcrypt.GenerateFromPassword(([]byte)(user.Password), bcrypt.DefaultCost)
 		if err != nil {
 			c.JSON(500, gin.H{
 				"error": "Failed to hash password.",
@@ -81,9 +90,7 @@ func main() {
 
 	})
 
-
-
-	router.POST("/login", func(c *gin.Context){
+	router.POST("/login", func(c *gin.Context) {
 		var logindata models.LoginInput
 		if err := c.BindJSON(&logindata); err != nil {
 			validationErrors := err.(validator.ValidationErrors)
@@ -91,14 +98,14 @@ func main() {
 			switch firstError.Field() {
 			case "Email":
 				switch firstError.Tag() {
-					case "required":
-						c.JSON(400, gin.H{
-							"error": "Email is required.",
-						})
-					case "email":
-						c.JSON(400, gin.H{
-							"error": "Please enter a valid email address.",
-						})
+				case "required":
+					c.JSON(400, gin.H{
+						"error": "Email is required.",
+					})
+				case "email":
+					c.JSON(400, gin.H{
+						"error": "Please enter a valid email address.",
+					})
 				}
 			case "Password":
 				switch firstError.Tag() {
@@ -119,14 +126,14 @@ func main() {
 			return
 		}
 		var user models.User
-		result:=config.DB.Where("email = ?", logindata.Email).First(&user)
+		result := config.DB.Where("email = ?", logindata.Email).First(&user)
 		if result.Error != nil {
 			c.JSON(401, gin.H{
 				"error": "Invalid email or password.",
 			})
 			return
 		}
-		err:=bcrypt.CompareHashAndPassword(([]byte)(user.Password),([]byte)(logindata.Password))
+		err := bcrypt.CompareHashAndPassword(([]byte)(user.Password), ([]byte)(logindata.Password))
 		if err != nil {
 			c.JSON(401, gin.H{
 				"error": "Invalid email or password.",
@@ -135,11 +142,11 @@ func main() {
 		}
 		claims := jwt.MapClaims{
 			"user_id": user.ID,
-			"email": user.Email,
-			"exp":time.Now().Add(time.Hour * 72).Unix(),
+			"email":   user.Email,
+			"exp":     time.Now().Add(time.Hour * 72).Unix(),
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err := token.SignedString([]byte("my-secret-key"))	
+		tokenString, err := token.SignedString([]byte("my-secret-key"))
 		if err != nil {
 			c.JSON(500, gin.H{
 				"error": "Failed to generate token.",
@@ -149,13 +156,11 @@ func main() {
 		c.JSON(200, gin.H{
 			"login": "login successful",
 			"token": tokenString,
-		})	
+		})
 	})
 
-
-
-	router.GET("/dashboard",middleware.AuthMiddleware(), func(c *gin.Context){
-		userID, exists:= c.Get("user_id")
+	router.GET("/dashboard", middleware.AuthMiddleware(), func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(401, gin.H{
 				"error": "User ID not found in token.",
@@ -169,7 +174,7 @@ func main() {
 
 	})
 
-	router.POST("/tasks",middleware.AuthMiddleware(), func(c *gin.Context){
+	router.POST("/tasks", middleware.AuthMiddleware(), func(c *gin.Context) {
 		var input models.TaskInput
 		if err := c.BindJSON(&input); err != nil {
 			c.JSON(400, gin.H{
@@ -207,12 +212,12 @@ func main() {
 		}
 		c.JSON(201, gin.H{
 			"message": "Task created successfully.",
-			"task": task,
+			"task":    task,
 		})
 
 	})
 
-	router.GET("/tasks",middleware.AuthMiddleware(), func(c *gin.Context){
+	router.GET("/tasks", middleware.AuthMiddleware(), func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
 			c.JSON(401, gin.H{
@@ -268,7 +273,6 @@ func main() {
 		})
 	})
 
-
 	router.PUT("/tasks/:id", middleware.AuthMiddleware(), func(c *gin.Context) {
 		userID, exists := c.Get("user_id")
 		if !exists {
@@ -286,7 +290,7 @@ func main() {
 		}
 		taskID := c.Param("id")
 		var task models.Task
-		if err:=config.DB.Where("id = ? AND user_id = ?", taskID, userIDUint).First(&task).Error; err != nil {
+		if err := config.DB.Where("id = ? AND user_id = ?", taskID, userIDUint).First(&task).Error; err != nil {
 			c.JSON(404, gin.H{
 				"error": "Task not found.",
 			})
