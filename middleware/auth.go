@@ -1,10 +1,13 @@
 package middleware
 import (
+	"os"
 	"github.com/gin-gonic/gin"
 	"strings"
 	"github.com/golang-jwt/jwt/v5"
 )
 func AuthMiddleware() gin.HandlerFunc {
+	secret := os.Getenv("JWT_SECRET")
+
 	return func(c *gin.Context) {
 		tokenString := c.GetHeader("Authorization")
 		if tokenString == "" {
@@ -15,7 +18,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			return []byte("my-secret-key"), nil
+			return []byte(secret), nil
 		})
 
 		if err != nil {
@@ -37,7 +40,15 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 		userID := uint(userIDFloat)
+		role, ok := claims["role"].(string)
+		if !ok {
+			c.JSON(401, gin.H{"error": "Invalid role in token claims"})
+			c.Abort()
+			return
+		}
+
 		c.Set("user_id", userID)
+		c.Set("role", role)
 		c.Next()
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 	"welcome/config"
+	"os"
 	"welcome/middleware"
 	"welcome/models"
 
@@ -17,6 +18,7 @@ import (
 func main() {
 	config.ConnectDatabase()
 	router := gin.Default()
+	secret := os.Getenv("JWT_SECRET")
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
@@ -61,6 +63,9 @@ func main() {
 			}
 			return
 		}
+
+		user.Role = "user"
+
 		var existingUser models.User
 		if err := config.DB.Where("email = ?", user.Email).First(&existingUser).Error; err == nil {
 			c.JSON(409, gin.H{
@@ -85,7 +90,6 @@ func main() {
 		}
 		c.JSON(201, gin.H{
 			"message": "User registered successfully.",
-			"user":    user,
 		})
 
 	})
@@ -143,10 +147,11 @@ func main() {
 		claims := jwt.MapClaims{
 			"user_id": user.ID,
 			"email":   user.Email,
+			"role":		user.Role,
 			"exp":     time.Now().Add(time.Hour * 72).Unix(),
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		tokenString, err := token.SignedString([]byte("my-secret-key"))
+		tokenString, err := token.SignedString([]byte(secret))
 		if err != nil {
 			c.JSON(500, gin.H{
 				"error": "Failed to generate token.",
@@ -353,6 +358,200 @@ func main() {
 			"message": "Task deleted successfully.",
 		})
 
+	})
+
+	router.GET("/info", middleware.AuthMiddleware(), func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(401, gin.H{
+				"error": "User ID not found in token.",
+			})
+			return
+		}
+		var user models.User
+		if err := config.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+			c.JSON(404, gin.H{
+				"error": "User not found.",
+			})
+			return
+		}
+
+		var completedTasksCount int64
+		if err := config.DB.Model(&models.Task{}).Where("user_id = ? AND status = ?", userID, "Completed").Count(&completedTasksCount).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to retrieve tasks count.",
+			})
+			return
+		}
+		var pendingTasksCount int64
+		if err := config.DB.Model(&models.Task{}).Where("user_id = ? AND status = ?", userID, "Pending").Count(&pendingTasksCount).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to retrieve tasks count.",
+			})
+			return
+		}
+		var inProgressTasksCount int64
+		if err := config.DB.Model(&models.Task{}).Where("user_id = ? AND status = ?", userID, "In Progress").Count(&inProgressTasksCount).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to retrieve tasks count.",
+			})
+			return
+		}
+
+		c.JSON(200, gin.H{
+			"username":          user.Name,
+			"email":             user.Email,
+			"tasks_completed":   completedTasksCount,
+			"tasks_pending":     pendingTasksCount,
+			"tasks_in_progress": inProgressTasksCount,
+		})
+	})
+
+	router.POST("/reset-password", middleware.AuthMiddleware(), func(c *gin.Context) {
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(401, gin.H{
+				"error": "User ID not found in token.",
+			})
+			return
+		}	
+		userIDUint, ok := userID.(uint)
+		if !ok {
+			c.JSON(500, gin.H{
+				"error": "Invalid user ID type.",
+			})
+			return
+		}
+
+		var input models.ResetInput
+		if err := c.BindJSON(&input); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		var user models.User
+		if err := config.DB.First(&user, userIDUint).Error; err != nil {
+			c.JSON(404, gin.H{
+				"error": "User not found.",
+			})
+			return
+		}
+
+		if err := bcrypt.CompareHashAndPassword(
+			[]byte(user.Password),
+			[]byte(input.Current),
+		); err != nil {
+			c.JSON(401, gin.H{
+				"error": "Current password is incorrect.",
+			})
+			return
+		}
+
+		hashedPassword, err := bcrypt.GenerateFromPassword(
+			[]byte(input.New),
+			bcrypt.DefaultCost,
+		)
+		if err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to hash new password.",
+			})
+			return
+		}
+
+		user.Password = string(hashedPassword)
+		if err := config.DB.Save(&user).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to update password.",
+			})
+			return
+		}
+	
+		c.JSON(200, gin.H{
+			"message": "Password updated successfully.",
+		})
+	})
+
+	router.GET("/admin/test",middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
+        c.JSON(200, gin.H{
+            "message": "Welcome to the admin area!",
+        })
+    })	
+
+	router.GET("/admin/users",middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
+        var users []models.User
+        if err := config.DB.Find(&users).Error; err != nil {
+            c.JSON(500, gin.H{
+                "error": "Failed to retrieve users.",
+            })
+            return
+        }
+        userResponses := make([]models.AdminUserResponse, 0, len(users))
+        for _, user := range users {
+            userResponses = append(userResponses, models.AdminUserResponse{
+                ID:    user.ID,
+                Name:  user.Name,
+                Email: user.Email,
+                Role:  user.Role,
+            })
+        }
+        c.JSON(200, gin.H{
+            "users": userResponses,
+        })
+    })
+
+
+	router.GET("/admin/users/:id/tasks", middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
+		userID := c.Param("id")
+		var tasks []models.Task
+		if err := config.DB.Where("user_id = ?", userID).Find(&tasks).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to retrieve tasks.",
+			})
+			return
+		}
+		c.JSON(200, gin.H{
+			"tasks": tasks,
+		})
+	})
+
+
+	router.PUT("/admin/tasks/:id/status", middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
+		taskID := c.Param("id")
+		var task models.Task
+		if err := config.DB.First(&task, taskID).Error; err != nil {
+			c.JSON(404, gin.H{
+				"error": "Task not found.",
+			})
+			return
+		}
+		var input struct {
+			Status string `json:"status" binding:"required"`
+		}
+		if err := c.BindJSON(&input); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+		if input.Status != "Pending" && input.Status != "In Progress" && input.Status != "Completed" {
+			c.JSON(400, gin.H{
+				"error": "Invalid status. Allowed values are: Pending, In Progress, Completed.",
+			})
+			return
+		}
+		task.Status = input.Status
+		if err := config.DB.Save(&task).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to update task status.",
+			})
+			return
+		}
+		c.JSON(200, gin.H{
+			"message": "Task status updated successfully.",
+			"task":    task,
+		})
 	})
 
 	router.Run(":8080")
