@@ -634,14 +634,12 @@ func main() {
 		var user models.User
 	
 		if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-			// Don't reveal whether the email exists.
 			c.JSON(200, gin.H{
 				"message": "If an account with that email exists, a password reset link has been sent.",
 			})
 			return
 		}
 	
-		// Remove previous reset tokens for this user.
 		config.DB.
 			Where("user_id = ?", user.ID).
 			Delete(&models.PasswordReset{})
@@ -667,8 +665,7 @@ func main() {
 			return
 		}
 	
-		// Temporary development version.
-		// Later we will replace this with an email.
+
 		resetLink := os.Getenv("FRONTEND_URL") +"/reset-password?token=" + token
 		if err := utils.SendPasswordResetEmail(
 			user.Email,
@@ -684,7 +681,7 @@ func main() {
 		}
 	
 		c.JSON(200, gin.H{
-			"message": "If an account with that email exists, a password reset link has been sent.",
+			"message": "a password reset link has been sent to your mail.",
 		})
 	})
 
@@ -757,7 +754,6 @@ func main() {
 			return
 		}
 	
-		// Delete token so it cannot be reused.
 		config.DB.Delete(&reset)
 	
 		c.JSON(200, gin.H{
