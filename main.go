@@ -7,17 +7,47 @@ import (
 	"welcome/config"
 	"welcome/middleware"
 	"welcome/models"
+	"welcome/utils"
+
+	"github.com/joho/godotenv"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 )
 
+func generateResetToken() (string, string, error) {
+	bytes := make([]byte, 32)
+
+	if _, err := rand.Read(bytes); err != nil {
+		return "", "", err
+	}
+
+	token := hex.EncodeToString(bytes)
+
+	hash := sha256.Sum256([]byte(token))
+	tokenHash := hex.EncodeToString(hash[:])
+
+	return token, tokenHash, nil
+}
+
+
+
 func main() {
+	if err := godotenv.Load(); err != nil {
+        fmt.Println("Warning: .env file not found")
+    }
+
+    router := gin.Default()
+
 	config.ConnectDatabase()
-	router := gin.Default()
+
 	secret := os.Getenv("JWT_SECRET")
 
 	router.Use(cors.New(cors.Config{
@@ -585,6 +615,153 @@ func main() {
 		c.JSON(201, gin.H{
 			"message": "Task created and assigned successfully.",
 			"task":    task,
+		})
+	})
+
+	router.POST("/forgot-password", func(c *gin.Context) {
+
+		var input struct {
+			Email string `json:"email" binding:"required,email"`
+		}
+	
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(400, gin.H{
+				"error": "Please enter a valid email address.",
+			})
+			return
+		}
+	
+		var user models.User
+	
+		if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+			// Don't reveal whether the email exists.
+			c.JSON(200, gin.H{
+				"message": "If an account with that email exists, a password reset link has been sent.",
+			})
+			return
+		}
+	
+		// Remove previous reset tokens for this user.
+		config.DB.
+			Where("user_id = ?", user.ID).
+			Delete(&models.PasswordReset{})
+	
+		token, tokenHash, err := generateResetToken()
+		if err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to generate reset token.",
+			})
+			return
+		}
+	
+		reset := models.PasswordReset{
+			UserID:    user.ID,
+			TokenHash: tokenHash,
+			ExpiresAt: time.Now().Add(15 * time.Minute),
+		}
+	
+		if err := config.DB.Create(&reset).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to create password reset request.",
+			})
+			return
+		}
+	
+		// Temporary development version.
+		// Later we will replace this with an email.
+		resetLink := os.Getenv("FRONTEND_URL") +"/reset-password?token=" + token
+		if err := utils.SendPasswordResetEmail(
+			user.Email,
+			resetLink,
+		); err != nil {
+
+			fmt.Println("Failed to send password reset email:", err)
+
+			c.JSON(500, gin.H{
+				"error": "Failed to send password reset email.",
+			})
+			return
+		}
+	
+		c.JSON(200, gin.H{
+			"message": "If an account with that email exists, a password reset link has been sent.",
+		})
+	})
+
+	router.POST("/reset-password-token", func(c *gin.Context) {
+
+		var input struct {
+			Token    string `json:"token" binding:"required"`
+			Password string `json:"password" binding:"required,min=8"`
+		}
+	
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(400, gin.H{
+				"error": "Password must be at least 8 characters.",
+			})
+			return
+		}
+	
+		tokenHashBytes := sha256.Sum256([]byte(input.Token))
+		tokenHash := hex.EncodeToString(tokenHashBytes[:])
+	
+		var reset models.PasswordReset
+	
+		if err := config.DB.
+			Where("token_hash = ?", tokenHash).
+			First(&reset).Error; err != nil {
+	
+			c.JSON(400, gin.H{
+				"error": "Invalid or expired reset link.",
+			})
+			return
+		}
+	
+		if time.Now().After(reset.ExpiresAt) {
+	
+			config.DB.Delete(&reset)
+	
+			c.JSON(400, gin.H{
+				"error": "Invalid or expired reset link.",
+			})
+			return
+		}
+	
+		var user models.User
+	
+		if err := config.DB.First(&user, reset.UserID).Error; err != nil {
+			c.JSON(404, gin.H{
+				"error": "User not found.",
+			})
+			return
+		}
+	
+		hashedPassword, err := bcrypt.GenerateFromPassword(
+			[]byte(input.Password),
+			bcrypt.DefaultCost,
+		)
+	
+		if err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to hash password.",
+			})
+			return
+		}
+	
+		user.Password = string(hashedPassword)
+	
+		if err := config.DB.Save(&user).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to update password.",
+			})
+			return
+		}
+	
+		// Delete token so it cannot be reused.
+		config.DB.Delete(&reset)
+	
+		c.JSON(200, gin.H{
+			"message": "Password reset successfully.",
 		})
 	})
 
