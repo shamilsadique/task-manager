@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"time"
 	"welcome/config"
-	"os"
 	"welcome/middleware"
 	"welcome/models"
 
@@ -147,7 +147,7 @@ func main() {
 		claims := jwt.MapClaims{
 			"user_id": user.ID,
 			"email":   user.Email,
-			"role":		user.Role,
+			"role":    user.Role,
 			"exp":     time.Now().Add(time.Hour * 72).Unix(),
 		}
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -414,7 +414,7 @@ func main() {
 				"error": "User ID not found in token.",
 			})
 			return
-		}	
+		}
 		userIDUint, ok := userID.(uint)
 		if !ok {
 			c.JSON(500, gin.H{
@@ -467,42 +467,41 @@ func main() {
 			})
 			return
 		}
-	
+
 		c.JSON(200, gin.H{
 			"message": "Password updated successfully.",
 		})
 	})
 
-	router.GET("/admin/test",middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
-        c.JSON(200, gin.H{
-            "message": "Welcome to the admin area!",
-        })
-    })	
+	router.GET("/admin/test", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Welcome to the admin area!",
+		})
+	})
 
-	router.GET("/admin/users",middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
-        var users []models.User
-        if err := config.DB.Find(&users).Error; err != nil {
-            c.JSON(500, gin.H{
-                "error": "Failed to retrieve users.",
-            })
-            return
-        }
-        userResponses := make([]models.AdminUserResponse, 0, len(users))
-        for _, user := range users {
-            userResponses = append(userResponses, models.AdminUserResponse{
-                ID:    user.ID,
-                Name:  user.Name,
-                Email: user.Email,
-                Role:  user.Role,
-            })
-        }
-        c.JSON(200, gin.H{
-            "users": userResponses,
-        })
-    })
+	router.GET("/admin/users", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) {
+		var users []models.User
+		if err := config.DB.Find(&users).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to retrieve users.",
+			})
+			return
+		}
+		userResponses := make([]models.AdminUserResponse, 0, len(users))
+		for _, user := range users {
+			userResponses = append(userResponses, models.AdminUserResponse{
+				ID:    user.ID,
+				Name:  user.Name,
+				Email: user.Email,
+				Role:  user.Role,
+			})
+		}
+		c.JSON(200, gin.H{
+			"users": userResponses,
+		})
+	})
 
-
-	router.GET("/admin/users/:id/tasks", middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
+	router.GET("/admin/users/:id/tasks", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) {
 		userID := c.Param("id")
 		var tasks []models.Task
 		if err := config.DB.Where("user_id = ?", userID).Find(&tasks).Error; err != nil {
@@ -516,8 +515,7 @@ func main() {
 		})
 	})
 
-
-	router.PUT("/admin/tasks/:id/status", middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
+	router.PUT("/admin/tasks/:id/status", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) {
 		taskID := c.Param("id")
 		var task models.Task
 		if err := config.DB.First(&task, taskID).Error; err != nil {
@@ -550,6 +548,42 @@ func main() {
 		}
 		c.JSON(200, gin.H{
 			"message": "Task status updated successfully.",
+			"task":    task,
+		})
+	})
+
+	router.POST("/admin/tasks",middleware.AuthMiddleware(),middleware.AdminMiddleware(),func(c *gin.Context) {
+		var input models.TaskInput
+		if err := c.BindJSON(&input); err != nil {
+			c.JSON(400, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		var user models.User
+		if err := config.DB.First(&user, input.UserID).Error; err != nil {
+			c.JSON(404, gin.H{
+				"error": "User not found.",
+			})
+			return
+		}
+
+		task := models.Task{
+			Title:       input.Title,
+			Description: input.Description,
+			Status:      "Pending",
+			DueDate:     input.DueDate,
+			UserID:      input.UserID,
+		}
+		if err := config.DB.Create(&task).Error; err != nil {
+			c.JSON(500, gin.H{
+				"error": "Failed to create task.",
+			})
+			return
+		}
+		c.JSON(201, gin.H{
+			"message": "Task created and assigned successfully.",
 			"task":    task,
 		})
 	})
