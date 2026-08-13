@@ -635,7 +635,7 @@ func main() {
 	
 		if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
 			c.JSON(200, gin.H{
-				"message": "If an account with that email exists, a password reset link has been sent.",
+				"message": "a reset link has been sent to your email.",
 			})
 			return
 		}
